@@ -16,32 +16,53 @@ Metadata:
           - VpcCidr
 
 Parameters:
+  # エージェントを作成するVPC
   VpcId:
     Type: "AWS::EC2::VPC::Id"
-    Description: "エージェントを作成するVPC"
+  # エージェントを作成するVPCのサブネット
   SubnetId:
     Type: "AWS::EC2::Subnet::Id"
-    Description: "エージェントを作成するVPCのサブネット"
+
+  # 使用するAMI
+  # 使用できる最新のAMIは以下のコマンドで確認する
+  # aws ssm get-parameter --name /aws/service/datasync/ami --region ap-northeast-1
   Ami:
     Type: "String"
     Default: "ami-0fd849d47ec1ece18"
-    Description: "aws ssm get-parameter --name /aws/service/datasync/ami --region ap-northeast-1"
+
+  # インスタンスのタイプは2種類に決められています。
+  #  m5.2xlarge 2000万未満のファイルを転送する場合
+  #  m5.4xlarge 2000万超のファイルを転送する場合
   InstanceType:
     Type: "String"
     Default: "m5.2xlarge"
     AllowedValues:
       - "m5.2xlarge"
       - "m5.4xlarge"
-    Description: "m5.2xlarge 2000万未満のファイルを転送する場合 m5.4xlarge 2000万超のファイルを転送する場合"
+
+  # エージェントインスタンスのキーペア
   KeyPair:
     Type: "AWS::EC2::KeyPair::KeyName"
-    Description: "エージェントインスタンスのキーペア"
+
+  # SSM Agentが使用するバケット
   S3BucketForSSM:
     Type: "String"
+    Description: "S3 bucket name for SM Agent"
+
+  # サービスエンドポイントへのアクセスを許可するCIDR
+  # デフォルトは、パブリックエンドポイントとなる
   VpcCidr:
     Type: "String"
     Default: "0.0.0.0/0"
-    Description: "サービスエンドポイントへのアクセスを許可するCIDR"
+
+  # VPCエンドポイントを利用するか？ 
+  UseVPCEndpoint:
+    Type: "String"
+    AllowedValues: [true, false]
+
+Conditions:
+  NeedVPCEndpoint: 
+    !Equals [true, !Ref UseVPCEndpoint]
 
 Resources:
   SecurityGroupForEC2:
@@ -244,6 +265,7 @@ Resources:
       VpcId: !Ref "VpcId"
   VPCEndpoint:
   # https://docs.aws.amazon.com/ja_jp/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpcendpoint.html
+    Condition: NeedVPCEndpoint
     Type: "AWS::EC2::VPCEndpoint"
     DependsOn: "SecurityGroupForVpcE"
     DeletionPolicy: "Delete"
